@@ -17,40 +17,49 @@ const app = express();
 app.use(json());
 app.use(cors());
 
-setInterval(async () => {
+// setInterval(async () => {
+//   try {
+//     await mongoClient.connect();
+//     const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
+//     const dbChatUsers = dbChat.collection("Users");
+//     const dbChatMessages = dbChat.collection("Messages");
+//     const users = await dbChatUsers.find({}).toArray();
+//     const time = Date.now();
+//     const disconnectedUsers = users.filter(
+//       (user) => time - parseInt(user.lastStatus) > 15000
+//     );
+//     disconnectedUsers.map(async (user) => {
+//       await dbChatUsers.deleteOne({ name: user.name });
+//       const message = {
+//         from: user.name,
+//         to: "Todos",
+//         text: "sai na sala...",
+//         type: "status",
+//         time: dayjs(Date.now()).format("hh:mm:ss"),
+//       };
+//       await dbChatMessages.insertOne(message);
+//     });
+//   } catch (error) {
+//     console.log(error);
+//   }
+// }, 15000);
+
+app.get("/participants", async (req, res) => {
   try {
     await mongoClient.connect();
     const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
     const dbChatUsers = dbChat.collection("Users");
-    const dbChatMessages = dbChat.collection("Messages");
-    const users = await dbChatUsers.find({}).toArray();
-    const time = Date.now();
-    const disconnectedUsers = users.filter(
-      (user) => time - parseInt(user.lastStatus) > 15000
-    );
-    disconnectedUsers.map(async (user) => {
-      await dbChatUsers.deleteOne({ name: user.name });
-      const message = {
-        from: user.name,
-        to: "Todos",
-        text: "sai na sala...",
-        type: "status",
-        time: dayjs(Date.now()).format("hh:mm:ss"),
-      };
-      await dbChatMessages.insertOne(message);
-    });
+    const participants = await dbChatUsers.find({}).toArray();
+    res.send(participants);
   } catch (error) {
     console.log(error);
+    res.sendStatus(500);
   }
-}, 15000);
+});
 
 app.post("/participants", async (req, res) => {
   try {
-    const { error, value } = schema.validate(req.body);
-    if (error) {
-      res.status(422).send(error.message);
-      return;
-    }
+    const value = await schema.validateAsync(req.body);
     const { name } = value;
     await mongoClient.connect();
     const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
@@ -76,6 +85,10 @@ app.post("/participants", async (req, res) => {
       res.sendStatus(409);
     }
   } catch (error) {
+    if (error.isJoi === true) {
+      res.status(422).send(error.message);
+      return;
+    }
     console.log(error);
     res.sendStatus(500);
   }
