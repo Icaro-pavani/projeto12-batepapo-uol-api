@@ -17,6 +17,33 @@ const app = express();
 app.use(json());
 app.use(cors());
 
+setInterval(async () => {
+  try {
+    await mongoClient.connect();
+    const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
+    const dbChatUsers = dbChat.collection("Users");
+    const dbChatMessages = dbChat.collection("Messages");
+    const users = await dbChatUsers.find({}).toArray();
+    const time = Date.now();
+    const disconnectedUsers = users.filter(
+      (user) => time - parseInt(user.lastStatus) > 15000
+    );
+    disconnectedUsers.map(async (user) => {
+      await dbChatUsers.deleteOne({ name: user.name });
+      const message = {
+        from: user.name,
+        to: "Todos",
+        text: "sai na sala...",
+        type: "status",
+        time: dayjs(Date.now()).format("hh:mm:ss"),
+      };
+      await dbChatMessages.insertOne(message);
+    });
+  } catch (error) {
+    console.log(error);
+  }
+}, 15000);
+
 app.post("/participants", async (req, res) => {
   try {
     const { error, value } = schema.validate(req.body);
