@@ -8,9 +8,17 @@ import dotenv from "dotenv";
 
 dotenv.config();
 const mongoClient = new MongoClient(process.env.MONGO_URI);
+let db;
+mongoClient.connect(() => (db = mongoClient.db("projeto12-batepapo-uol-api")));
 
-const schema = Joi.object({
+const signInSchema = Joi.object({
   name: Joi.string().required(),
+});
+
+const bodyMessageSchema = Joi.object({
+  to: Joi.string().required(),
+  text: Joi.string().required(),
+  type: Joi.string().valid("message", "private_message").required(),
 });
 
 const app = express();
@@ -19,17 +27,13 @@ app.use(cors());
 
 // setInterval(async () => {
 //   try {
-//     await mongoClient.connect();
-//     const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
-//     const dbChatUsers = dbChat.collection("Users");
-//     const dbChatMessages = dbChat.collection("Messages");
-//     const users = await dbChatUsers.find({}).toArray();
+//     const users = await db.collection("Users").find({}).toArray();
 //     const time = Date.now();
 //     const disconnectedUsers = users.filter(
 //       (user) => time - parseInt(user.lastStatus) > 15000
 //     );
 //     disconnectedUsers.map(async (user) => {
-//       await dbChatUsers.deleteOne({ name: user.name });
+//       await db.collection("Users").deleteOne({ name: user.name });
 //       const message = {
 //         from: user.name,
 //         to: "Todos",
@@ -37,7 +41,7 @@ app.use(cors());
 //         type: "status",
 //         time: dayjs(Date.now()).format("hh:mm:ss"),
 //       };
-//       await dbChatMessages.insertOne(message);
+//       await db.collection("Messages").insertOne(message);
 //     });
 //   } catch (error) {
 //     console.log(error);
@@ -46,10 +50,7 @@ app.use(cors());
 
 app.get("/participants", async (req, res) => {
   try {
-    await mongoClient.connect();
-    const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
-    const dbChatUsers = dbChat.collection("Users");
-    const participants = await dbChatUsers.find({}).toArray();
+    const participants = await db.collection("Users").find({}).toArray();
     res.send(participants);
   } catch (error) {
     console.log(error);
@@ -59,31 +60,59 @@ app.get("/participants", async (req, res) => {
 
 app.post("/participants", async (req, res) => {
   try {
-    const value = await schema.validateAsync(req.body);
-    const { name } = value;
-    await mongoClient.connect();
-    const dbChat = mongoClient.db("projeto12-batepapo-uol-api");
-    const dbChatUsers = dbChat.collection("Users");
-    const dbChatMessages = dbChat.collection("Messages");
-    const user = await dbChatUsers.findOne({ name });
+    const validation = await signInSchema.validateAsync(req.body);
+    const { name } = validation;
+    const user = await db.collection("Users").findOne({ name });
     if (!user) {
       const newUser = {
         name,
         lastStatus: Date.now(),
       };
       const message = {
-        from: value.name,
+        from: name,
         to: "Todos",
         text: "entra na sala...",
         type: "status",
-        time: dayjs(Date.now()).format("hh:mm:ss"),
+        time: dayjs(Date.now()).format("HH:mm:ss"),
       };
-      await dbChatUsers.insertOne(newUser);
-      await dbChatMessages.insertOne(message);
+      await db.collection("Users").insertOne(newUser);
+      await db.collection("Messages").insertOne(message);
       res.sendStatus(201);
     } else {
       res.sendStatus(409);
     }
+  } catch (error) {
+    if (error.isJoi === true) {
+      res.status(422).send(error.message);
+      return;
+    }
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
+
+app.post("/messages", async (req, res) => {
+  try {
+    const { user } = req.headers;
+    const users = await db.collection("Users").find().toArray();
+    const usersNames = users.map(({ name }) => name);
+    const headerSchema = Joi.object({
+      from: Joi.string()
+        .valid(...usersNames)
+        .required(),
+    });
+
+    const bodyValidation = await bodyMessageSchema.validateAsync(req.body, {
+      abortEarly: false,
+    });
+    const fromValidation = await headerSchema.validateAsync({ from: user });
+    const message = {
+      ...fromValidation,
+      ...bodyValidation,
+      time: dayjs(Date.now()).format("HH:mm:ss"),
+    };
+    await db.collection("Messages").insertOne(message);
+    res.sendStatus(201);
   } catch (error) {
     if (error.isJoi === true) {
       res.status(422).send(error.message);
