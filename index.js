@@ -1,5 +1,6 @@
 import express, { json } from "express";
 import { MongoClient } from "mongodb";
+import { stripHtml } from "string-strip-html";
 import cors from "cors";
 import chalk from "chalk";
 import Joi from "joi";
@@ -61,7 +62,7 @@ app.get("/participants", async (req, res) => {
 app.post("/participants", async (req, res) => {
   try {
     const validation = await signInSchema.validateAsync(req.body);
-    const { name } = validation;
+    const name = stripHtml(validation.name).result.trim();
     const user = await db.collection("Users").findOne({ name });
     if (!user) {
       const newUser = {
@@ -77,7 +78,7 @@ app.post("/participants", async (req, res) => {
       };
       await db.collection("Users").insertOne(newUser);
       await db.collection("Messages").insertOne(message);
-      res.sendStatus(201);
+      res.status(201).send(name);
     } else {
       res.sendStatus(409);
     }
@@ -93,8 +94,12 @@ app.post("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
   try {
-    const { user } = req.headers;
+    const user = stripHtml(req.headers.user).result.trim();
     const users = await db.collection("Users").find().toArray();
+    if (users.length === 0) {
+      res.status(422).send("Não há participantes ativos!");
+      return;
+    }
     const usersNames = users.map(({ name }) => name);
     const headerSchema = Joi.object({
       from: Joi.string()
@@ -107,8 +112,10 @@ app.post("/messages", async (req, res) => {
     });
     const fromValidation = await headerSchema.validateAsync({ from: user });
     const message = {
-      ...fromValidation,
-      ...bodyValidation,
+      from: stripHtml(fromValidation.from).result.trim(),
+      to: stripHtml(bodyValidation.to).result.trim(),
+      text: stripHtml(bodyValidation.text).result.trim(),
+      type: stripHtml(bodyValidation.type).result.trim(),
       time: dayjs(Date.now()).format("HH:mm:ss"),
     };
     await db.collection("Messages").insertOne(message);
