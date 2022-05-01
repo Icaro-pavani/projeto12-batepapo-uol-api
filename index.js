@@ -25,28 +25,28 @@ const app = express();
 app.use(json());
 app.use(cors());
 
-// setInterval(async () => {
-//   try {
-//     const users = await db.collection("Users").find({}).toArray();
-//     const time = Date.now();
-//     const disconnectedUsers = users.filter(
-//       (user) => time - parseInt(user.lastStatus) > 15000
-//     );
-//     disconnectedUsers.map(async (user) => {
-//       await db.collection("Users").deleteOne({ name: user.name });
-//       const message = {
-//         from: user.name,
-//         to: "Todos",
-//         text: "sai na sala...",
-//         type: "status",
-//         time: dayjs(Date.now()).format("HH:mm:ss"),
-//       };
-//       await db.collection("Messages").insertOne(message);
-//     });
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }, 15000);
+setInterval(async () => {
+  try {
+    const users = await db.collection("Users").find({}).toArray();
+    const time = Date.now();
+    const disconnectedUsers = users.filter(
+      (user) => time - parseInt(user.lastStatus) > 15000
+    );
+    disconnectedUsers.map(async (user) => {
+      await db.collection("Users").deleteOne({ name: user.name });
+      const message = {
+        from: user.name,
+        to: "Todos",
+        text: "sai na sala...",
+        type: "status",
+        time: dayjs(Date.now()).format("HH:mm:ss"),
+      };
+      await db.collection("Messages").insertOne(message);
+    });
+  } catch (error) {
+    console.log(error);
+  }
+}, 15000);
 
 app.get("/participants", async (req, res) => {
   try {
@@ -142,7 +142,7 @@ app.get("/messages", async (req, res) => {
         $or: [
           { from: headerValidation.user },
           { to: headerValidation.user },
-          { type: { $in: [("message", "status")] } },
+          { type: { $in: ["message", "status"] } },
         ],
       })
       .toArray();
