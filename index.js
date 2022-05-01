@@ -1,5 +1,5 @@
 import express, { json } from "express";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { stripHtml } from "string-strip-html";
 import cors from "cors";
 import chalk from "chalk";
@@ -191,6 +191,29 @@ app.post("/status", async (req, res) => {
       res.sendStatus(404);
       return;
     }
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
+
+app.delete("/messages/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const message = await db
+      .collection("Messages")
+      .findOne({ _id: new ObjectId(id) });
+    console.log(message);
+    if (!message) {
+      res.sendStatus(404);
+      return;
+    }
+    if (message.from !== stripHtml(req.headers.user).result.trim()) {
+      res.sendStatus(401);
+      return;
+    }
+    await db.collection("Messages").deleteOne({ _id: new ObjectId(id) });
+    res.sendStatus(200);
+  } catch (error) {
     console.log(error);
     res.sendStatus(500);
   }
