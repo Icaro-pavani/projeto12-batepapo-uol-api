@@ -39,7 +39,7 @@ app.use(cors());
 //         to: "Todos",
 //         text: "sai na sala...",
 //         type: "status",
-//         time: dayjs(Date.now()).format("hh:mm:ss"),
+//         time: dayjs(Date.now()).format("HH:mm:ss"),
 //       };
 //       await db.collection("Messages").insertOne(message);
 //     });
@@ -154,6 +154,34 @@ app.get("/messages", async (req, res) => {
   } catch (error) {
     if (error.isJoi === true) {
       res.status(422).send(error.message);
+      return;
+    }
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
+
+app.post("/status", async (req, res) => {
+  try {
+    const { user } = req.headers;
+    const users = await db.collection("Users").find().toArray();
+    const usersNames = users.map(({ name }) => name);
+    const headerSchema = Joi.object({
+      user: Joi.string()
+        .valid(...usersNames)
+        .required(),
+    });
+    const headerValidation = await headerSchema.validateAsync({ user });
+    await db
+      .collection("Users")
+      .updateOne(
+        { name: headerValidation.user },
+        { $set: { lastStatus: Date.now() } }
+      );
+    res.sendStatus(200);
+  } catch (error) {
+    if (error.isJoi === true) {
+      res.sendStatus(404);
       return;
     }
     console.log(error);
