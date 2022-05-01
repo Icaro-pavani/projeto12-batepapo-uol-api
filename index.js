@@ -123,4 +123,42 @@ app.post("/messages", async (req, res) => {
   }
 });
 
+app.get("/messages", async (req, res) => {
+  try {
+    const { limit } = req.query;
+    const { user } = req.headers;
+    const users = await db.collection("Users").find().toArray();
+    const usersNames = users.map(({ name }) => name);
+    const headerSchema = Joi.object({
+      user: Joi.string()
+        .valid(...usersNames)
+        .required(),
+    });
+    const headerValidation = await headerSchema.validateAsync({ user });
+
+    const messages = await db
+      .collection("Messages")
+      .find({
+        $or: [
+          { from: headerValidation.user },
+          { to: headerValidation.user },
+          { type: { $in: [("message", "status")] } },
+        ],
+      })
+      .toArray();
+    if (!limit) {
+      res.send(messages);
+      return;
+    }
+    res.send(messages.slice(-limit));
+  } catch (error) {
+    if (error.isJoi === true) {
+      res.status(422).send(error.message);
+      return;
+    }
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
+
 app.listen(5000, () => console.log(chalk.bold.green("Servidor Online!")));
