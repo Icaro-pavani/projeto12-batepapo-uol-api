@@ -38,7 +38,7 @@ setInterval(async () => {
       const message = {
         from: user.name,
         to: "Todos",
-        text: "sai na sala...",
+        text: "sai da sala...",
         type: "status",
         time: dayjs(Date.now()).format("HH:mm:ss"),
       };
