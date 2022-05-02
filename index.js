@@ -83,11 +83,11 @@ app.post("/participants", async (req, res) => {
       res.sendStatus(409);
     }
   } catch (error) {
+    console.log(error);
     if (error.isJoi === true) {
       res.status(422).send(error.message);
       return;
     }
-    console.log(error);
     res.sendStatus(500);
   }
 });
@@ -153,17 +153,18 @@ app.get("/messages", async (req, res) => {
         ],
       })
       .toArray();
+
     if (!limit) {
       res.send(messages);
       return;
     }
     res.send(messages.slice(-limit));
   } catch (error) {
+    console.log(error);
     if (error.isJoi === true) {
       res.status(422).send(error.message);
       return;
     }
-    console.log(error);
     res.sendStatus(500);
   }
 });
@@ -187,11 +188,11 @@ app.post("/status", async (req, res) => {
       );
     res.sendStatus(200);
   } catch (error) {
+    console.log(error);
     if (error.isJoi === true) {
       res.sendStatus(404);
       return;
     }
-    console.log(error);
     res.sendStatus(500);
   }
 });
