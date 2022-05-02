@@ -202,7 +202,6 @@ app.delete("/messages/:id", async (req, res) => {
     const message = await db
       .collection("Messages")
       .findOne({ _id: new ObjectId(id) });
-    console.log(message);
     if (!message) {
       res.sendStatus(404);
       return;
@@ -215,6 +214,56 @@ app.delete("/messages/:id", async (req, res) => {
     res.sendStatus(200);
   } catch (error) {
     console.log(error);
+    res.sendStatus(500);
+  }
+});
+
+app.put("/messages/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const message = await db
+      .collection("Messages")
+      .findOne({ _id: new ObjectId(id) });
+    if (!message) {
+      res.sendStatus(404);
+      return;
+    }
+    const user = stripHtml(req.headers.user).result.trim();
+    const users = await db.collection("Users").find().toArray();
+    if (users.length === 0) {
+      res.status(422).send("Não há participantes ativos!");
+      return;
+    }
+    const usersNames = users.map(({ name }) => name);
+    const headerSchema = Joi.object({
+      from: Joi.string()
+        .valid(...usersNames)
+        .required(),
+    });
+    const bodyValidation = await bodyMessageSchema.validateAsync(req.body, {
+      abortEarly: false,
+    });
+    const fromValidation = await headerSchema.validateAsync({ from: user });
+
+    if (message.from !== fromValidation.from) {
+      res.sendStatus(401);
+      return;
+    }
+    const bodyMessageUpdate = {
+      to: stripHtml(bodyValidation.to).result.trim(),
+      text: stripHtml(bodyValidation.text).result.trim(),
+      type: stripHtml(bodyValidation.type).result.trim(),
+    };
+    await db
+      .collection("Messages")
+      .updateOne({ _id: new ObjectId(id) }, { $set: bodyMessageUpdate });
+    res.sendStatus(200);
+  } catch (error) {
+    if (error.isJoi === true) {
+      console.log(error);
+      res.sendStatus(422);
+      return;
+    }
     res.sendStatus(500);
   }
 });
